@@ -1,0 +1,51 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy container app to Azure Web App - obiregapp
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: 'ubuntu-latest'
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Log in to registry
+      uses: docker/login-action@v1
+      with:
+        registry: https://obireg.azurecr.io/
+        username: ${{ secrets.AzureAppService_ContainerUsername_92e02cc7145f4d58bb3d05e795a21f0c }}
+        password: ${{ secrets.AzureAppService_ContainerPassword_edc0d3269e084f3497a3fe5ed2f375b9 }}
+
+    - name: Build and push container image to registry
+      uses: docker/build-push-action@v2
+      with:
+        push: true
+        tags: obireg.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_92e02cc7145f4d58bb3d05e795a21f0c }}/webimage:${{ github.sha }}
+        file: ./Dockerfile
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: 'production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    steps:
+    - name: Deploy to Azure Web App
+      id: deploy-to-webapp
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'obiregapp'
+        slot-name: 'production'
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_50a330ee7e3f4ada81f769bf14efa6f4 }}
+        images: 'obireg.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_92e02cc7145f4d58bb3d05e795a21f0c }}/webimage:${{ github.sha }}'
